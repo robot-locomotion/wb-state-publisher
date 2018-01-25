@@ -1,0 +1,32 @@
+<launch>
+
+	<!-- Robot name -->
+	<arg name="robot" default="hyq"/>
+	
+	<!-- Whole-body state publisher -->
+	<arg name="state_pub" default="true" />
+		
+	<!-- Loading joint controller configurations from YAML file to parameter server -->
+	<rosparam file="$(find dwl_controllers)/config/joint_state_publisher.yaml" ns="/$(arg robot)" command="load"/>	
+	<rosparam file="$(find dwl_controllers)/config/$(arg robot)_constrained_op_controller.yaml" command="load"/>
+
+	<!-- Loading the controllers -->
+	<group if="$(arg state_pub)">
+		<!-- Loading whole-body state controller configurations from YAML file to parameter server -->
+		<rosparam file="$(find dwl_controllers)/config/whole_body_state_publisher.yaml" ns="/$(arg robot)" command="load"/>		
+		<node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+			output="screen" ns="/$(arg robot)" args="joint_state_publisher whole_body_state_publisher
+		 	constrained_operational_controller"/>
+	</group>
+	<group unless="$(arg state_pub)">		
+		<node name="controller_spawner" pkg="controller_manager" type="spawner" respawn="false"
+			output="screen" ns="/$(arg robot)" args="joint_state_publisher constrained_operational_controller"/>
+	</group>
+
+	<!-- convert joint states to TF transforms for rviz, etc -->
+	<node name="robot_state_publisher" pkg="robot_state_publisher" type="robot_state_publisher"
+		respawn="false" output="screen">
+		<remap from="/joint_states" to="/$(arg robot)/joint_states"/>
+	</node>
+
+</launch>

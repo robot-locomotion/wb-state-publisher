@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<package>
+  <name>wb_state_publisher</name>
+  <version>0.0.1</version>
+  <description>The whole-body state publisher</description>
+
+  <author email="carlos.mastalli@laas.fr">Carlos Mastalli</author>
+  <maintainer email="carlos.mastalli@laas.fr">Carlos Mastalli</maintainer>
+  <license>BDS 3-Clause</license>
+
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>dwl</build_depend>
+  <build_depend>dwl_msgs</build_depend>
+  <build_depend>dynamic_reconfigure</build_depend>
+  <build_depend>hardware_interface</build_depend>
+  <build_depend>controller_interface</build_depend>
+  <build_depend>control_toolbox</build_depend>
+  <build_depend>pluginlib</build_depend>
+  <build_depend>realtime_tools</build_depend>
+  <build_depend>urdf</build_depend>
+  <build_depend>tf</build_depend>
+
+  <run_depend>roscpp</run_depend>
+  <run_depend>dwl</run_depend>
+  <run_depend>dwl_msgs</run_depend>
+  <run_depend>dynamic_reconfigure</run_depend>
+  <run_depend>hardware_interface</run_depend>
+  <run_depend>controller_interface</run_depend>
+  <run_depend>control_toolbox</run_depend>
+  <run_depend>pluginlib</run_depend>
+  <run_depend>realtime_tools</run_depend>
+  <run_depend>urdf</run_depend>
+  <run_depend>tf</run_depend>
+
+  <!-- The export tag contains other, unspecified, tags -->
+  <export>
+    <controller_interface plugin="${prefix}/wb_state_publisher.xml"/>
+  </export>
+</package>

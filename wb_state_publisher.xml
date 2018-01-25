@@ -1,0 +1,12 @@
+<library path="libwb_state_publisher">
+	<class name="wb_publisher/WholeBodyStatePublisherController"
+		   type="wb_state_publisher::WholeBodyStatePublisherController"
+		   base_class_type="controller_interface::ControllerBase">
+		<description>
+			The whole-body state publisher is ros controller that publishes the actual
+			whole-body state of the	robot as a dwl_msgs/WholeBodyState message. It
+			expects a ros_control::JointStateInterface.
+		</description>
+	</class>
+
+</library>
