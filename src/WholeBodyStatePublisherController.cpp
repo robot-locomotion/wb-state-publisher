@@ -50,11 +50,11 @@ bool WholeBodyStatePublisherController::init(hardware_interface::JointStateInter
 	}
 
 	// Initializing the kinematic and dynamic models
-	wdyn_.modelFromURDFModel(robot_model, robot_config);
-	wkin_ = wdyn_.getWholeBodyKinematics();
+	fbs_.resetFromURDFModel(robot_model, robot_config);
+	wkin_.reset(fbs_);
+	wdyn_.reset(fbs_, wkin_);
 
 	// Reading floating system properties
-	fbs_ = wkin_.getFloatingBaseSystem();
 	num_base_joints_ = fbs_.getFloatingBaseDoF();
 	num_joints_ = fbs_.getJointDoF();
 	num_end_effectors_ = fbs_.getNumberOfEndEffectors();
