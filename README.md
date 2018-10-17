@@ -26,6 +26,7 @@ The wb-state-publisher is a ROS packages with the following required dependencie
 * [ros-control](https://github.com/ros-controls/ros_control)
 * [dwl](https://github.com/robot-locomotion/dwl)
 * [dwl-msgs](https://github.com/robot-locomotion/dwl-msgs)
+* [ros-control](http://wiki.ros.org/ros_control)
 
 The following dependencies are optional:
 * [Doxygen](http://www.doxygen.org)
