@@ -9,8 +9,7 @@ namespace wb_state_publisher
 {
 
 WholeBodyStatePublisherController::WholeBodyStatePublisherController() :
-		num_base_joints_(0), num_meas_base_joints_(0), num_joints_(0),
-		num_end_effectors_(0)
+		num_meas_base_joints_(0), num_joints_(0), num_end_effectors_(0)
 {
 
 }

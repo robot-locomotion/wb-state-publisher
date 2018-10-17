@@ -73,9 +73,6 @@ class WholeBodyStatePublisherController :
 		/** @brief End-effector names */
 		std::vector<std::string> end_effector_names_;
 
-		/** @brief Number of base joints */
-		unsigned int num_base_joints_;
-
 		/** @brief Number of measurable base joints */
 		unsigned int num_meas_base_joints_;
 
