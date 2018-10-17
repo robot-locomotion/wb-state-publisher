@@ -49,51 +49,26 @@ bool WholeBodyStatePublisherController::init(hardware_interface::JointStateInter
 	}
 
 	// Initializing the kinematic and dynamic models
-	wdyn_.modelFromURDFModel(robot_model, robot_config);
-	wkin_ = wdyn_.getWholeBodyKinematics();
+	fbs_.resetFromURDFFile(robot_model, robot_config);
+	wdyn_.reset(fbs_, wkin_);
+	wkin_.reset(fbs_);
 
 	// Reading floating system properties
-	fbs_ = wkin_.getFloatingBaseSystem();
-	num_base_joints_ = fbs_.getFloatingBaseDoF();
 	num_joints_ = fbs_.getJointDoF();
 	num_end_effectors_ = fbs_.getNumberOfEndEffectors();
-	joint_names_ = fbs_.getJointNames();
-	end_effector_names_ = fbs_.getEndEffectorNames();
+	joint_names_ = fbs_.getJointList();
+	end_effector_names_ = fbs_.getEndEffectorList();
 
     // get all joint names from the hardware interface
     const std::vector<std::string>& hw_joint_names = hw->getNames();
 	unsigned num_hw_joints = hw_joint_names.size();
 
-
-	// In a partially floating-base system, we model the base with different joints. In this case,
-	// it suppose that we measure the joint states in the base joints (simulation and
-	// robot). For simplicity, we take advantage of this condition in simulation by applied a
-	// virtual PID controllers in the base joints, this allows us to keep the floating-base on air
-	// in simulation
-	// Reading and setting up the base information
-	for (unsigned int base_idx = 0; base_idx < 6; base_idx++) {
-		dwl::rbd::Coords6d base_id = dwl::rbd::Coords6d(base_idx);
-		dwl::model::FloatingBaseJoint base_joint = fbs_.getFloatingBaseJoint(base_id);
-
-		if (base_joint.active) {
-			// Getting the base joint handle in cases that of non-full floating-base robot
-			for (unsigned int joint_idx = 0; joint_idx < num_hw_joints; joint_idx++) {
-				if (base_joint.name == hw_joint_names[joint_idx]) {
-					// Getting the base joint handle in cases that of non-full floating-base robot
-					base_joint_states_.push_back(hw->getHandle(base_joint.name));
-					++num_meas_base_joints_;
-				}
-			}
-		}
-	}
-
 	// Reading and setting up the actuated joint information
 	joint_states_.resize(num_joints_);
-	dwl::urdf_model::JointID joints = fbs_.getJoints();
-	for (dwl::urdf_model::JointID::const_iterator joint_it = joints.begin();
-			joint_it != joints.end(); joint_it++) {
-		std::string joint_name = joint_it->first;
-		unsigned int joint_id = joint_it->second;
+	for (dwl::model::ElementId::const_iterator jnt_it = fbs_.getJoints().begin();
+			jnt_it != fbs_.getJoints().end(); ++jnt_it) {
+		std::string joint_name = jnt_it->first;
+		unsigned int joint_id = jnt_it->second;
 
 		// Getting the joint handle
 		joint_states_[joint_id] = hw->getHandle(joint_name);
@@ -120,16 +95,9 @@ void WholeBodyStatePublisherController::starting(const ros::Time& time)
 	robot_state_.time = time.toSec();
 
 	// Initializing the current base state
-    for (unsigned int base_idx = 0; base_idx < num_meas_base_joints_; base_idx++) {
-    	unsigned int base_coord = fbs_.getFloatingBaseJointCoordinate(base_idx);
-    	robot_state_.base_pos(base_coord) = base_joint_states_[base_idx].getPosition();
-    	robot_state_.base_vel(base_coord) = base_joint_states_[base_idx].getVelocity();
-    	robot_state_.base_acc(base_coord) = 0.;
-    }
-    if (num_meas_base_joints_ == 0) { // full floating-base robot
-    	controller_commons_.updateStateEstimationSubscription(robot_state_.base_pos,
-    														  robot_state_.base_vel);
-    }
+   	controller_commons_.updateStateEstimationSubscription(robot_state_.base_pos,
+   														  robot_state_.base_vel);
+
 
     // Initializing the current joint state
 	for (unsigned int joint_idx = 0; joint_idx < num_joints_; joint_idx++) {
@@ -151,17 +119,8 @@ void WholeBodyStatePublisherController::update(const ros::Time& time,
 	robot_state_.time = time.toSec();
 
 	// Updating the current base state
-    for (unsigned int base_idx = 0; base_idx < num_meas_base_joints_; base_idx++) {
-    	unsigned int base_coord = fbs_.getFloatingBaseJointCoordinate(base_idx);
-    	robot_state_.base_pos(base_coord) = base_joint_states_[base_idx].getPosition();
-    	robot_state_.base_acc(base_idx) = (base_joint_states_[base_idx].getVelocity() -
-    			robot_state_.base_vel(base_idx)) / period.toSec();
-    	robot_state_.base_vel(base_coord) = base_joint_states_[base_idx].getVelocity();
-    }
-    if (num_meas_base_joints_ == 0) { // full floating-base robot
-    	controller_commons_.updateStateEstimationSubscription(robot_state_.base_pos,
-    														  robot_state_.base_vel);
-    }
+   	controller_commons_.updateStateEstimationSubscription(robot_state_.base_pos,
+   														  robot_state_.base_vel);
 
     // Updating the current joint state
 	for (unsigned int joint_idx = 0; joint_idx < num_joints_; joint_idx++) {
@@ -189,29 +148,39 @@ void WholeBodyStatePublisherController::stopping(const ros::Time& time)
 void WholeBodyStatePublisherController::computeContactState()
 {
 	// Computing the contact positions w.r.t the base reference system
-	wkin_.computeForwardKinematics(robot_state_.contact_pos,
-								   dwl::rbd::Vector6d::Zero(), robot_state_.joint_pos,
-								   end_effector_names_, dwl::rbd::Linear);
+	robot_state_.setContactSE3_W(
+			wkin_.computePosition(robot_state_.getBaseSE3(),
+								  robot_state_.getJointPosition(),
+						  	  	  end_effector_names_));
 
 	// Computing the contact velocities
-	wkin_.computeVelocity(robot_state_.contact_vel,
-						  dwl::rbd::Vector6d::Zero(), robot_state_.joint_pos,
-						  dwl::rbd::Vector6d::Zero(), robot_state_.joint_vel,
-						  end_effector_names_, dwl::rbd::Linear);
+	robot_state_.setContactVelocity_W(
+			wkin_.computeVelocity(robot_state_.getBaseSE3(),
+								  robot_state_.getJointPosition(),
+								  robot_state_.getBaseVelocity_W(),
+								  robot_state_.getJointVelocity(),
+								  end_effector_names_));
 
 	// Computing the contact accelerations
-	wkin_.computeAcceleration(robot_state_.contact_acc,
-							  dwl::rbd::Vector6d::Zero(), robot_state_.joint_pos,
-							  dwl::rbd::Vector6d::Zero(), robot_state_.joint_vel,
-							  dwl::rbd::Vector6d::Zero(), robot_state_.joint_acc,
-							  end_effector_names_, dwl::rbd::Linear);
+	robot_state_.setContactAcceleration_W(
+			wkin_.computeAcceleration(robot_state_.getBaseSE3(),
+					  	  	  	  	  robot_state_.getJointPosition(),
+									  robot_state_.getBaseVelocity_W(),
+									  robot_state_.getJointVelocity(),
+									  robot_state_.getBaseAcceleration_W(),
+									  robot_state_.getJointAcceleration(),
+									  end_effector_names_));
 
 	// Computing the contact forces
 	wdyn_.estimateContactForces(robot_state_.contact_eff,
-								dwl::rbd::Vector6d::Zero(), robot_state_.joint_pos,
-								robot_state_.base_vel, robot_state_.joint_vel,
-								robot_state_.base_acc, robot_state_.joint_acc,
-								robot_state_.joint_eff, end_effector_names_);
+								dwl::SE3(),
+								robot_state_.getJointPosition(),
+								robot_state_.getBaseVelocity_W(),
+								robot_state_.getJointVelocity(),
+								robot_state_.getBaseAcceleration_W(),
+								robot_state_.getJointAcceleration(),
+								robot_state_.getJointEffort(),
+								end_effector_names_);
 }
 
 } //@namespace wb_state_publisher
